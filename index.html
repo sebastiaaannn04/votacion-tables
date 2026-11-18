@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sistema de Votación</title>
+<style>
+:root{--bg:#f4f6fb;--card:#fff;--tx:#14213d;--mut:#667085;--pri:#3b5bdb;--pri2:#2f49b5;--ok:#2b9348;--err:#d00000;--bd:#e3e7f0;--bar:#3b5bdb;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1424;--card:#1a2138;--tx:#eef1fb;--mut:#9aa4c0;--pri:#6f8cff;--pri2:#8fa5ff;--bd:#2b3453;--bar:#6f8cff;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0f1424;--card:#1a2138;--tx:#eef1fb;--mut:#9aa4c0;--pri:#6f8cff;--pri2:#8fa5ff;--bd:#2b3453;--bar:#6f8cff;color-scheme:dark}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.45}
+main{max-width:980px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:clamp(1.8rem,5vw,2.8rem);margin:.2em 0}h2{margin:.2em 0 .6em}
+.center{text-align:center;min-height:70vh;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:14px}
+.sub{color:var(--mut)}
+.btn{border:0;border-radius:14px;padding:16px 26px;font-size:1.1rem;font-weight:600;cursor:pointer;background:var(--pri);color:#fff;transition:.15s}
+.btn:hover{background:var(--pri2)}.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.sec{background:transparent;color:var(--pri);border:2px solid var(--pri)}.btn.red{background:var(--err)}.btn.sm{padding:9px 14px;font-size:.9rem;border-radius:10px}
+.row{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}.row.l{justify-content:flex-start;align-items:center}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:18px;padding:18px;box-shadow:0 2px 10px #0000000d}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px}
+.cand{text-align:center;display:flex;flex-direction:column;gap:10px;align-items:center}
+.ph{width:120px;height:120px;border-radius:50%;object-fit:cover;background:var(--bd);display:flex;align-items:center;justify-content:center;font-size:2.2rem;font-weight:700;color:var(--mut)}
+.ph.s{width:48px;height:48px;font-size:1.1rem;flex:none}
+input[type=text],input[type=file],input[type=email],input[type=password],select{width:100%;padding:14px;border-radius:12px;border:1px solid var(--bd);background:var(--card);color:var(--tx);font-size:1rem;margin:6px 0 14px}
+label{font-weight:600;font-size:.95rem}
+.msg{padding:12px 14px;border-radius:12px;margin:10px 0;font-weight:500}.msg.err{background:#d0000018;color:var(--err)}.msg.ok{background:#2b934818;color:var(--ok)}.msg.in{background:#3b5bdb18;color:var(--pri)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
+.kpi b{display:block;font-size:2rem}.kpi span{color:var(--mut);font-size:.9rem}
+.bar{display:flex;align-items:center;gap:12px;margin:14px 0}.bar .info{flex:1;min-width:0}
+.track{height:26px;background:var(--bd);border-radius:13px;overflow:hidden;margin-top:6px}.fill{height:100%;background:var(--bar);border-radius:13px;transition:width .6s}
+.top{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.tabs{display:flex;gap:8px;margin:12px 0}.tabs .btn{padding:10px 18px;font-size:1rem}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--bd)}.sc{overflow-x:auto}
+#modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:#000a;padding:16px;z-index:20}#modal.on{display:flex}
+#modal .card{max-width:440px;width:100%}
+</style>
+</head>
+<body>
+<main><div id="app"></div></main>
+<div id="modal"><div class="card" id="mbox"></div></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+/* === CONFIGURACION: pega aquí los datos de tu proyecto (Project Settings > API) === */
+var SUPABASE_URL='https://fgmikvjivqddnyahqepc.supabase.co';
+var SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZnbWlrdmppdnFkZG55YWhxZXBjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTUwMjg4NTksImV4cCI6MjExMDYwNDg1OX0.H5KiSek5CY7hfELt__3b8OMzAxVOSuIjIS85myaYZms';
+/* Cuenta de administrador (la misma que creaste en Authentication > Users) */
+var ADMIN_EMAIL='scuervoalarcon@gmail.com';
+var ADMIN_PASS='123456';
+/* ================================================================================ */
+var sb=null,fail=false,last='';
+var S={polls:[],cands:[],res:{},tot:{},voters:[],view:'home',tab:'polls',sel:null,pollId:null,voter:null,msg:null,adm:false};
+var $=function(i){return document.getElementById(i)};
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function ck(r){if(r.error)throw r.error;return r}
+function go(v,x){S.view=v;S.msg=null;if(v==='home')S.adm=false;if(x)Object.assign(S,x);$('app').dataset.v='';render();window.scrollTo(0,0);load()}
+function tab(t){S.tab=t;render();load()}
+function photo(c,sm){return c.photo_url?'<img class="ph'+(sm?' s':'')+'" src="'+esc(c.photo_url)+'" alt="">':'<div class="ph'+(sm?' s':'')+'">'+esc((c.name||'?').trim().charAt(0).toUpperCase())+'</div>'}
+function modal(h){$('mbox').innerHTML=h;$('modal').className='on'}
+function closeM(){$('modal').className=''}
+async function sha(t){var b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t));return Array.from(new Uint8Array(b)).map(function(x){return x.toString(16).padStart(2,'0')}).join('')}
+var memDev=null;
+function devId(){try{var d=localStorage.getItem('dev');if(!d){d=crypto.randomUUID();localStorage.setItem('dev',d)}return d}catch(e){return memDev||(memDev=crypto.randomUUID())}}
+function flag(p,set){try{if(set)localStorage.setItem('v:'+p,'1');return localStorage.getItem('v:'+p)==='1'}catch(e){return false}}
+var ERR={cc_dup:'Ya has registrado tu voto. No puedes votar nuevamente',dev_dup:'Este dispositivo ya registró un voto en esta sala. No puedes votar nuevamente',closed:'Esta sala está cerrada.',invalid_cc:'La cédula debe contener exactamente 10 dígitos numéricos.',invalid:'Los datos ingresados no son válidos.'};
+function poll(id){return S.polls.find(function(p){return p.id===id})}
+function candsOf(p){return S.cands.filter(function(c){return c.poll_id===p})}
+function counts(p){var m=S.res[p]||{},cs=candsOf(p),t=0;cs.forEach(function(c){t+=m[c.id]||0});
+ return cs.map(function(c){var n=m[c.id]||0;return Object.assign({},c,{n:n,p:t?n*100/t:0})}).sort(function(a,b){return b.n-a.n})}
+function curSel(){if(!S.sel||!poll(S.sel))S.sel=S.polls.length?S.polls[0].id:null;return S.sel}
+function selBox(){if(!S.polls.length)return '';return '<div style="margin-bottom:14px"><label>Encuesta</label><select onchange="S.sel=this.value;render();load()">'+S.polls.map(function(p){return '<option value="'+p.id+'"'+(p.id===curSel()?' selected':'')+'>'+esc(p.name)+'</option>'}).join('')+'</select></div>'}
+function openOpts(){var o=S.polls.filter(function(p){return p.open});return o.length?'<option value="">Selecciona una sala…</option>'+o.map(function(p){return '<option value="'+p.id+'">'+esc(p.name)+'</option>'}).join(''):'<option value="">No hay salas abiertas</option>'}
+
+async function load(){
+ if(!sb)return;
+ try{
+  var a=await Promise.all([sb.from('polls').select('*').order('created_at'),sb.from('candidates').select('*').order('created_at'),sb.rpc('poll_totals')]);
+  ck(a[0]);ck(a[1]);ck(a[2]);
+  S.polls=a[0].data;S.cands=a[1].data;S.tot={};a[2].data.forEach(function(r){S.tot[r.poll_id]=Number(r.total)});
+  var pid=S.view==='results'?(S.adm?curSel():S.pollId):null;
+  if(pid){var r=ck(await sb.rpc('poll_results',{p_poll:pid}));var m={};r.data.forEach(function(x){m[x.candidate_id]=Number(x.votes)});S.res[pid]=m}
+  if(S.adm&&S.tab==='voters'&&curSel()){S.voters=ck(await sb.from('voters').select('full_name,cc_masked,created_at').eq('poll_id',curSel()).order('created_at',{ascending:false})).data}
+  fail=false;
+ }catch(e){fail=true}
+ var sig=JSON.stringify([S.polls,S.cands,S.res,S.tot,S.voters,fail,S.view,S.tab,S.sel]);
+ if(sig!==last){last=sig;render()}
+}
+function render(){
+ var a=$('app');
+ if(S.view==='pin'&&a.dataset.v==='pin')return;
+ if(S.view==='ident'&&a.dataset.v==='ident'){var s=$('vs');if(s){var v=s.value;s.innerHTML=openOpts();s.value=v}return}
+ a.dataset.v=S.view;
+ var f={home:vHome,pin:vPin,login:vLogin,admin:vAdmin,ident:vIdent,vote:vVote,results:vResults}[S.view];
+ a.innerHTML=(fail?'<div class="msg err">No se pudo conectar con la base de datos. Revisa la configuración o tu conexión.</div>':'')+f();
+}
+function vHome(){return '<div class="center"><div style="font-size:3.5rem">🗳️</div><h1>Sistema de Votación</h1><p class="sub">Elige cómo deseas ingresar</p><div class="row" style="flex-direction:column;width:100%;max-width:340px"><button class="btn" onclick="go(\'ident\')">Invitado</button><button class="btn sec" onclick="enterAdmin()">Administrador</button></div></div>'}
+
+/* ADMIN: acceso con Supabase Auth */
+async function isAdm(){var r=await sb.from('admins').select('user_id').maybeSingle();if(r.error)throw r.error;return !!r.data}
+function enterAdmin(){go('pin')}
+function vPin(){return '<div class="center"><div class="card" style="max-width:420px;width:100%;text-align:left"><h2>Acceso de administrador</h2><label>Contraseña</label><input type="password" id="pw" inputmode="numeric" autocomplete="off" onkeydown="if(event.key===\'Enter\')doPin()"><div id="pm"></div><div class="row"><button class="btn" onclick="doPin()">Ingresar</button><button class="btn sec" onclick="go(\'home\')">Volver</button></div></div></div>'}
+function doPin(){if($('pw').value==='8543')afterPin();else $('pm').innerHTML='<div class="msg err">Contraseña incorrecta.</div>'}
+async function afterPin(){var m=$('pm');try{var s=await sb.auth.getSession();if(!(s.data.session&&await isAdm())){var r=await sb.auth.signInWithPassword({email:ADMIN_EMAIL,password:ADMIN_PASS});if(r.error)throw r.error;if(!await isAdm())throw new Error('no admin')}go('admin',{adm:true})}catch(e){var t=String(e&&e.message||e),w=/Invalid login/i.test(t)?'El correo o la contraseña de ADMIN_EMAIL / ADMIN_PASS no coinciden con el usuario de Supabase (Authentication > Users).':/not confirmed/i.test(t)?'El usuario no está confirmado. En Authentication > Users, ábrelo y confirma el correo.':t==='no admin'?'El usuario inició sesión, pero no está en la tabla admins. Ejecuta en el SQL Editor la línea insert into public.admins ...':'Detalle: '+t;m.innerHTML='<div class="msg err">No se pudo iniciar la sesión de administrador. '+esc(w)+'</div>'}}
+function vLogin(){return '<div class="center"><div class="card" style="max-width:420px;width:100%;text-align:left"><h2>Acceso de administrador</h2><label>Correo</label><input type="email" id="ae" autocomplete="username"><label>Contraseña</label><input type="password" id="ap" autocomplete="current-password"><div id="am"></div><div class="row"><button class="btn" id="ab" onclick="doLogin()">Ingresar</button><button class="btn sec" onclick="go(\'home\')">Volver</button></div></div></div>'}
+async function doLogin(){var m=$('am');$('ab').disabled=true;
+ var r=await sb.auth.signInWithPassword({email:$('ae').value.trim(),password:$('ap').value});
+ if(r.error){m.innerHTML='<div class="msg err">Correo o contraseña incorrectos.</div>';$('ab').disabled=false;return}
+ if(!await isAdm()){await sb.auth.signOut();m.innerHTML='<div class="msg err">Esta cuenta no tiene permisos de administrador.</div>';$('ab').disabled=false;return}
+ go('admin',{adm:true})}
+async function logout(){await sb.auth.signOut();go('home')}
+function vAdmin(){
+ if(!S.adm)return vLogin();
+ var h='<div class="top"><h2>Panel de administrador</h2><div class="row"><button class="btn" onclick="go(\'results\')">Ver progreso</button><button class="btn sec" onclick="logout()">Salir</button></div></div>';
+ h+='<div class="tabs">'+[['polls','Encuestas'],['cands','Candidatos'],['voters','Votantes']].map(function(t){return '<button class="btn '+(S.tab===t[0]?'':'sec')+'" onclick="tab(\''+t[0]+'\')">'+t[1]+'</button>'}).join('')+'</div>';
+ if(S.tab==='polls'){
+  h+='<div class="row l" style="margin-bottom:14px"><button class="btn" onclick="pollForm()">+ Nueva encuesta</button></div>';
+  if(!S.polls.length)h+='<p class="sub">Aún no hay encuestas. Crea la primera.</p>';
+  h+='<div class="grid">'+S.polls.map(function(p){var n=S.tot[p.id]||0;return '<div class="card cand"><b>'+esc(p.name)+'</b><span class="sub">'+(p.open?'🟢 Abierta':'🔴 Cerrada')+' · '+candsOf(p.id).length+' candidatos · '+n+' votos</span><div class="row"><button class="btn sm" onclick="S.sel=\''+p.id+'\';go(\'results\')">Resultados</button><button class="btn sm sec" onclick="S.sel=\''+p.id+'\';tab(\'cands\')">Candidatos</button><button class="btn sm sec" onclick="pollForm(\''+p.id+'\')">Editar</button><button class="btn sm sec" onclick="togglePoll(\''+p.id+'\')">'+(p.open?'Cerrar':'Abrir')+'</button><button class="btn sm red" '+(n?'disabled':'')+' onclick="delPoll(\''+p.id+'\')">Eliminar</button></div></div>'}).join('')+'</div>';
+ }else if(!S.polls.length){h+='<div class="msg in">Primero crea una encuesta en la pestaña Encuestas.</div>'}
+ else if(S.tab==='cands'){
+  var p=curSel(),n=S.tot[p]||0;
+  h+=selBox()+'<div class="row l" style="margin-bottom:14px"><button class="btn" onclick="candForm()">+ Nuevo candidato</button></div>';
+  if(n)h+='<div class="msg in">La votación de esta encuesta ya inició: no es posible eliminar candidatos.</div>';
+  var cs=candsOf(p);if(!cs.length)h+='<p class="sub">Esta encuesta aún no tiene candidatos.</p>';
+  h+='<div class="grid">'+cs.map(function(c){return '<div class="card cand">'+photo(c)+'<b>'+esc(c.name)+'</b><div class="row"><button class="btn sm sec" onclick="candForm(\''+c.id+'\')">Editar</button><button class="btn sm red" '+(n?'disabled':'')+' onclick="delCand(\''+c.id+'\')">Eliminar</button></div></div>'}).join('')+'</div>';
+ }else{
+  h+=selBox()+'<div class="kpis"><div class="card kpi"><b>'+S.voters.length+'</b><span>Personas que han votado</span></div></div>';
+  h+='<div class="card sc"><table><tr><th>Nombre</th><th>Cédula</th><th>Fecha y hora</th><th>Estado</th></tr>'+(S.voters.length?S.voters.map(function(v){return '<tr><td>'+esc(v.full_name)+'</td><td>'+esc(v.cc_masked)+'</td><td>'+new Date(v.created_at).toLocaleString('es-CO')+'</td><td>✅ Votó</td></tr>'}).join(''):'<tr><td colspan="4" class="sub">Sin participantes todavía.</td></tr>')+'</table></div><p class="sub">Por confidencialidad, no se muestra por quién votó cada persona.</p>';
+ }
+ return h}
+function pollForm(id){var p=poll(id)||{};modal('<h2>'+(id?'Editar':'Nueva')+' encuesta</h2><label>Nombre de la sala</label><input type="text" id="pn" value="'+esc(p.name||'')+'"><div id="cm"></div><div class="row"><button class="btn" id="cs" onclick="savePoll(\''+(id||'')+'\')">Guardar</button><button class="btn sec" onclick="closeM()">Cancelar</button></div>')}
+async function savePoll(id){var name=$('pn').value.trim();if(!name){$('cm').innerHTML='<div class="msg err">Escribe el nombre de la sala.</div>';return}
+ $('cs').disabled=true;try{if(id)ck(await sb.from('polls').update({name:name}).eq('id',id));else{var r=ck(await sb.from('polls').insert({name:name}).select().single());S.sel=r.data.id}closeM();load()}catch(e){$('cm').innerHTML='<div class="msg err">No se pudo guardar: '+esc(e.message)+'</div>';$('cs').disabled=false}}
+async function togglePoll(id){try{ck(await sb.from('polls').update({open:!poll(id).open}).eq('id',id))}catch(e){}load()}
+function delPoll(id){modal('<h2>Eliminar encuesta</h2><p>Se eliminará la encuesta y sus candidatos. ¿Continuar?</p><div id="cm"></div><div class="row"><button class="btn red" onclick="doDelPoll(\''+id+'\')">Eliminar</button><button class="btn sec" onclick="closeM()">Cancelar</button></div>')}
+async function doDelPoll(id){try{ck(await sb.from('polls').delete().eq('id',id));closeM();load()}catch(e){$('cm').innerHTML='<div class="msg err">No se pudo eliminar: '+esc(e.message)+'</div>'}}
+function candForm(id){var c=S.cands.find(function(x){return x.id===id})||{};
+ modal('<h2>'+(id?'Editar':'Nuevo')+' candidato</h2><label>Nombre completo</label><input type="text" id="cn" value="'+esc(c.name||'')+'"><label>Fotografía</label><input type="file" id="cf" accept="image/*"><div id="cm"></div><div class="row"><button class="btn" id="cs" onclick="saveCand(\''+(id||'')+'\')">Guardar</button><button class="btn sec" onclick="closeM()">Cancelar</button></div>')}
+async function saveCand(id){
+ var name=$('cn').value.trim(),f=$('cf').files[0];
+ if(!name){$('cm').innerHTML='<div class="msg err">Escribe el nombre completo.</div>';return}
+ $('cs').disabled=true;
+ try{var d={name:name};
+  if(f){var path=crypto.randomUUID()+'.'+(f.name.split('.').pop()||'jpg').toLowerCase();ck(await sb.storage.from('candidatos').upload(path,f,{contentType:f.type}));d.photo_url=sb.storage.from('candidatos').getPublicUrl(path).data.publicUrl}
+  if(id)ck(await sb.from('candidates').update(d).eq('id',id));else{d.poll_id=curSel();ck(await sb.from('candidates').insert(d))}
+  closeM();load();
+ }catch(e){$('cm').innerHTML='<div class="msg err">No se pudo guardar: '+esc(e.message)+'</div>';$('cs').disabled=false}}
+function delCand(id){modal('<h2>Eliminar candidato</h2><p>¿Seguro que deseas eliminar este candidato?</p><div id="cm"></div><div class="row"><button class="btn red" onclick="doDel(\''+id+'\')">Eliminar</button><button class="btn sec" onclick="closeM()">Cancelar</button></div>')}
+async function doDel(id){try{ck(await sb.from('candidates').delete().eq('id',id));closeM();load()}catch(e){$('cm').innerHTML='<div class="msg err">No se pudo eliminar: '+esc(e.message)+'</div>'}}
+
+/* INVITADO */
+function vIdent(){return '<div class="center"><div class="card" style="max-width:460px;width:100%;text-align:left"><h2>Identificación del votante</h2><label>Nombre completo</label><input type="text" id="vn" autocomplete="name"><label>Número de cédula (10 dígitos)</label><input type="text" id="vc" inputmode="numeric" maxlength="10" autocomplete="off"><label>Sala de votación</label><select id="vs">'+openOpts()+'</select><div id="vm"></div><div class="row"><button class="btn" id="vb" onclick="checkVoter()">Continuar</button><button class="btn sec" onclick="go(\'home\')">Volver</button></div></div></div>'}
+async function checkVoter(){
+ var n=$('vn').value.trim().replace(/\s+/g,' '),c=$('vc').value.trim(),p=$('vs').value,m=$('vm');
+ if(!n||!c||!p){m.innerHTML='<div class="msg err">Debes ingresar tu nombre completo, tu cédula y elegir una sala.</div>';return}
+ if(!/^\d{10}$/.test(c)){m.innerHTML='<div class="msg err">'+ERR.invalid_cc+'</div>';return}
+ $('vb').disabled=true;
+ try{
+  if(flag(p)){m.innerHTML='<div class="msg err">'+ERR.dev_dup+'</div>';$('vb').disabled=false;return}
+  var r=ck(await sb.rpc('can_vote',{p_poll:p,p_cc:c,p_device:await sha(devId())}));
+  if(r.data!=='ok'){m.innerHTML='<div class="msg err">'+(ERR[r.data]||ERR.invalid)+'</div>';$('vb').disabled=false;return}
+  go('vote',{voter:{name:n,cc:c},pollId:p});
+ }catch(e){m.innerHTML='<div class="msg err">Error de validación: '+esc(e.message)+'</div>';$('vb').disabled=false}}
+function vVote(){
+ var p=poll(S.pollId),h='<div class="top"><div><h2>Hola, '+esc(S.voter.name)+'</h2><span class="sub">Sala: '+esc(p?p.name:'')+' · Selecciona a tu candidato</span></div></div>',cs=candsOf(S.pollId);
+ if(!cs.length)return h+'<p class="sub">No hay candidatos disponibles todavía.</p>';
+ return h+'<div class="grid">'+cs.map(function(c){return '<div class="card cand">'+photo(c)+'<b>'+esc(c.name)+'</b><button class="btn" onclick="confirmVote(\''+c.id+'\')">Votar</button></div>'}).join('')+'</div>'}
+function confirmVote(id){modal('<h2>Confirmar voto</h2><p>¿Estás seguro de que deseas votar por este candidato? Esta acción no se puede deshacer.</p><div id="cm"></div><div class="row"><button class="btn" id="cv" onclick="castVote(\''+id+'\')">Confirmar voto</button><button class="btn sec" onclick="closeM()">Cancelar</button></div>')}
+async function castVote(id){
+ $('cv').disabled=true;var v=S.voter,p=S.pollId,cm=$('cm');
+ try{
+  var r=ck(await sb.rpc('cast_vote',{p_poll:p,p_candidate:id,p_name:v.name,p_cc:v.cc,p_device:await sha(devId())}));
+  if(r.data!=='ok'){if(r.data==='dev_dup')flag(p,1);cm.innerHTML='<div class="msg err">'+(ERR[r.data]||ERR.invalid)+'</div>';return}
+  flag(p,1);closeM();S.voter=null;go('results',{pollId:p,msg:'¡Tu voto fue registrado con éxito! Gracias por participar.'});
+ }catch(e){cm.innerHTML='<div class="msg err">No se pudo registrar el voto: '+esc(e.message)+'</div>';$('cv').disabled=false}}
+
+/* RESULTADOS */
+function vResults(){
+ var pid=S.adm?curSel():S.pollId,pl=poll(pid),r=pid?counts(pid):[],t=0;r.forEach(function(c){t+=c.n});
+ var h='<div class="top"><h2>Resultados en vivo</h2>'+(S.adm?'<button class="btn sec" onclick="go(\'admin\')">Volver al panel</button>':'<button class="btn sec" onclick="go(\'home\')">Inicio</button>')+'</div>';
+ if(S.adm)h+=selBox();else if(pl)h+='<p class="sub">Sala: '+esc(pl.name)+'</p>';
+ if(S.msg)h+='<div class="msg ok">'+esc(S.msg)+'</div>';
+ h+='<div class="kpis"><div class="card kpi"><b>'+t+'</b><span>Votos emitidos</span></div><div class="card kpi"><b>'+r.length+'</b><span>Candidatos</span></div></div>';
+ if(!r.length)return h+'<p class="sub">Aún no hay candidatos.</p>';
+ h+='<div class="card">'+r.map(function(c,i){return '<div class="bar">'+photo(c,1)+'<div class="info"><div class="top" style="margin:0"><b>'+(i+1)+'. '+esc(c.name)+'</b><span><b>'+c.n+'</b> voto'+(c.n===1?'':'s')+' · '+c.p.toFixed(1)+'%</span></div><div class="track"><div class="fill" style="width:'+c.p+'%"></div></div></div></div>'}).join('')+'</div>';
+ return h+'<p class="sub">Se actualiza automáticamente.</p>'}
+
+function init(){
+ render();
+ if(SUPABASE_ANON_KEY.indexOf('PEGA_AQUI')===0||!window.supabase){$('app').insertAdjacentHTML('afterbegin','<div class="msg err">Falta configurar SUPABASE_URL y SUPABASE_ANON_KEY al inicio del código.</div>');return}
+ sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+ load();setInterval(load,2500);
+}
+init();
+</script>
+</body>
+</html>
